@@ -1,11 +1,87 @@
 
 <html ng-app="ivelib">
-  <body ng-controller="mapCtrl">
+  <head>
+    <style>
+      body {
+        font: 10px sans-serif;
+      }
+      
+      .axis path,
+      .axis line {
+        fill: none;
+        stroke: #000;
+        shape-rendering: crispEdges;
+      }
+      
+      .x.axis path {
+        display: none;
+      }
+      
+      .line {
+        fill: none;
+        stroke: steelblue;
+        stroke-width: 1.5px;
+      }
+      
+      
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+      .controls {
+        margin-top: 16px;
+        border: 1px solid transparent;
+        border-radius: 2px 0 0 2px;
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        height: 32px;
+        outline: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+      
+      #pac-input {
+        background-color: #fff;
+        font-family: Roboto;
+        font-size: 15px;
+        font-weight: 300;
+        margin-left: 12px;
+        margin-top: 12px;
+        padding: 0 11px 0 13px;
+        text-overflow: ellipsis;
+        width: 400px;
+      }
+      
+      #pac-input:focus {
+        border-color: #4d90fe;
+      }
+      
+      .pac-container {
+        font-family: Roboto;
+      }
+      
+      #type-selector {
+        color: #fff;
+        background-color: #4d90fe;
+        padding: 5px 11px 0px 11px;
+      }
+      
+      #type-selector label {
+        font-family: Roboto;
+        font-size: 13px;
+        font-weight: 300;
+      }
+    </style>
+  </head>
+  <body ng-controller="mainCtrl">
+    <input id="pac-input" type="text" placeholder="Ou allez-vous ?" class="controls"/>
     <div id="map-canvas" style="width: 100%; height: 100%;"></div>
     <div class="search-view"></div>
     <input type="text" class="search-key"/>
-    <script src="https://maps.googleapis.com/maps/api/js"></script>
+    <div id="statistics"></div>
+    <script src="https://maps.googleapis.com/maps/api/js?libraries=places"></script>
     <script src="www/lib/angular.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
     <script src="www/lib/lodash.js"></script>
     <script src="www/app.js"></script>
   </body>

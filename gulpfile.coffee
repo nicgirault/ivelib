@@ -39,6 +39,7 @@ gulp.task 'vendor', ->
   gulp.src [
     'bower_components/angular/angular.js',
     'bower_components/lodash/lodash.js',
+    'bower_components/d3/d3.js',
   ]
   .pipe flatten()
   .pipe gulp.dest 'www/lib'

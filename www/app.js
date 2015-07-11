@@ -1,56 +1,26 @@
-angular.module('ivelib', ['maps-api', 'velib-api']);
+angular.module('ivelib', ['maps-api', 'station', 'statistics', 'map']);
 
-angular.module('ivelib').controller('mapCtrl', function(distanceService, stationsService) {
-  var initialize, map, position, stations;
-  position = new google.maps.LatLng(48.882599, 2.322190);
-  initialize = function() {
-    var map, mapCanvas, mapOptions;
-    mapCanvas = document.getElementById('map-canvas');
-    mapOptions = {
-      center: position,
-      zoom: 16,
-      mapTypeId: google.maps.MapTypeId.ROADMAP
-    };
-    map = new google.maps.Map(mapCanvas, mapOptions);
-    return map;
-  };
-  map = initialize();
-  stations = stationsService.sortByDistance(position);
-  new google.maps.Marker({
-    position: position,
-    map: map,
-    title: 'HERE!!!'
-  });
-  new google.maps.Marker({
-    position: new google.maps.LatLng(stations[0].latitude, stations[0].longitude),
-    map: map,
-    title: '1'
-  });
-  new google.maps.Marker({
-    position: new google.maps.LatLng(stations[1].latitude, stations[1].longitude),
-    map: map,
-    title: '2'
-  });
-  new google.maps.Marker({
-    position: new google.maps.LatLng(stations[2].latitude, stations[2].longitude),
-    map: map,
-    title: '3'
-  });
-  console.log(stations[0]);
-  console.log(stations[1]);
-  console.log(stations[2]);
-  return stationsService.getClosestStations();
+angular.module('ivelib').controller('mainCtrl', function(distanceService, statisticsService, Map) {
+  var map;
+  map = Map.initialize();
+  return Map.displayClosestStations(7);
 });
 
 angular.module('maps-api', []);
 
 angular.module('maps-api').constant('MAPS_API_KEY', 'AIzaSyDL-EFCmlespdMNy-nPlKiqgxLBSGHSE0c').constant('DISTANCE_API_URL', 'https://maps.googleapis.com/maps/api/distancematrix/json');
 
-angular.module('velib-api', []);
+angular.module('station', []);
 
-angular.module('velib-api').constant('apiKey', '7ceedd184447f8d34c74c1dde423c2580b4c82a2').constant('apiURL', 'https://api.jcdecaux.com/vls/v1');
+angular.module('station').constant('apiKey', '7ceedd184447f8d34c74c1dde423c2580b4c82a2').constant('apiURL', 'https://api.jcdecaux.com/vls/v1');
 
-angular.module('velib-api').constant('STATIONS', [
+angular.module('map', ['station']);
+
+angular.module('statistics', []);
+
+angular.module('statistics').constant('STATISTICS_API_URL', 'http://62.4.25.210/velib-statistics');
+
+angular.module('station').constant('STATIONS', [
   {
     "number": 31705,
     "name": "31705 - CHAMPEAUX (BAGNOLET)",
@@ -7478,7 +7448,7 @@ angular.module('maps-api').factory('distanceService', function(MAPS_API_KEY, DIS
   };
 });
 
-angular.module('velib-api').factory('stationsService', function(STATIONS) {
+angular.module('station').factory('Station', function(STATIONS) {
   return {
     sortByDistance: function(position) {
       return _.sortBy(STATIONS, function(station) {
@@ -7487,9 +7457,105 @@ angular.module('velib-api').factory('stationsService', function(STATIONS) {
         y = station.longitude - position.F;
         return x * x + y * y;
       });
+    }
+  };
+});
+
+angular.module('map').factory('Map', function(Station) {
+  var getCenterPosition, map;
+  map = null;
+  getCenterPosition = function() {
+    return new google.maps.LatLng(48.882599, 2.322190);
+  };
+  return {
+    initialize: function() {
+      var input, mapCanvas, mapOptions, parisBounds, searchBox;
+      mapCanvas = document.getElementById('map-canvas');
+      mapOptions = {
+        center: getCenterPosition(),
+        zoom: 16,
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+      };
+      map = new google.maps.Map(mapCanvas, mapOptions);
+      parisBounds = new google.maps.LatLngBounds(new google.maps.LatLng(48.750999, 2.021247), new google.maps.LatLng(48.950481, 2.542754));
+      input = document.getElementById('pac-input');
+      map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+      searchBox = new google.maps.places.SearchBox(input);
+      google.maps.event.addListener(searchBox, 'places_changed', function() {
+        var places;
+        places = searchBox.getPlaces();
+        if (places.length === 0) {
+          return;
+        }
+        return console.log('yoyo');
+      });
+      new google.maps.Marker({
+        position: getCenterPosition(),
+        map: map,
+        title: 'Your position'
+      });
+      return map;
     },
-    getClosestStations: function(position, limit) {
-      return console.log(STATIONS.length);
+    displayClosestStations: function(limit) {
+      var index, results, stations;
+      stations = Station.sortByDistance(getCenterPosition());
+      index = 0;
+      results = [];
+      while (index < limit) {
+        new google.maps.Marker({
+          position: new google.maps.LatLng(stations[index].latitude, stations[index].longitude),
+          map: map,
+          title: stations[index].address
+        });
+        results.push(index += 1);
+      }
+      return results;
+    }
+  };
+});
+
+angular.module('statistics').factory('statisticsService', function(STATISTICS_API_URL, $http) {
+  return {
+    getHistoric: function(station_id, contract_name, callback) {
+      return $http.get(STATISTICS_API_URL + "/station/" + contract_name + "/" + station_id).then(function(response) {
+        return callback(response.data.data);
+      });
+    },
+    drawChart: function(container, station_id, width, height, data) {
+      var line, margin, maxLine, svg, x, xAxis, y, yAxis;
+      console.log(container);
+      console.log(data);
+      margin = {
+        top: 20,
+        right: 20,
+        bottom: 30,
+        left: 50
+      };
+      width = width - margin.left - margin.right;
+      height = height - margin.top - margin.bottom;
+      x = d3.time.scale().range([0, width]);
+      y = d3.scale.linear().range([height, 0]);
+      xAxis = d3.svg.axis().scale(x).ticks(d3.time.minute, 30).tickFormat(d3.time.format('%H:%M')).orient('bottom');
+      yAxis = d3.svg.axis().scale(y).orient('left');
+      line = d3.svg.line().x(function(d) {
+        return x(new Date(d.last_update));
+      }).y(function(d) {
+        return y(d.available_bikes);
+      });
+      maxLine = d3.svg.line().x(function(d) {
+        return x(new Date(d.last_update));
+      }).y(function(d) {
+        return y(d.available_bike_stands + d.available_bikes);
+      });
+      svg = container.append('svg').attr('id', 'station-' + station_id).attr('width', width + margin.left + margin.right).attr('height', height + margin.top + margin.bottom).append('g').attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+      x.domain(d3.extent(data, function(d) {
+        return new Date(d.last_update);
+      }));
+      y.domain([0, data[0].bike_stands]);
+      svg.append('g').attr('class', 'x axis').attr('transform', 'translate(0,' + height + ')').call(xAxis);
+      svg.append('g').attr('class', 'y axis').call(yAxis);
+      svg.append('path').datum(data).attr('class', 'line').attr('d', line);
+      return svg.append('path').datum(data).attr('class', 'max-line').attr('d', maxLine);
     }
   };
 });
