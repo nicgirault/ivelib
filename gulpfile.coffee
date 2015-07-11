@@ -30,7 +30,7 @@ gulp.task 'coffee', ['concat'], ->
 gulp.task 'jade', ->
   gulp.src 'src/**/*.jade'
   .pipe jade pretty: true
-  .pipe gulp.dest 'www'
+  .pipe gulp.dest '.'
 
 gulp.task 'vendor', ->
   gulp.src [
