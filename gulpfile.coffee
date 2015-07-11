@@ -17,7 +17,10 @@ gulp.task 'clean:www', ->
 
 gulp.task 'concat', ['clean:build'], ->
   gulp.src [
-    'src/app.coffee'
+    'src/**/*.module.coffee'
+    'src/**/*.constant.coffee'
+    'src/**/*.service.coffee'
+    'src/**/*.controller.coffee'
   ]
   .pipe concat 'app.coffee'
   .pipe gulp.dest 'build'
@@ -34,7 +37,8 @@ gulp.task 'jade', ->
 
 gulp.task 'vendor', ->
   gulp.src [
-    'bower_components/angular/angular.js'
+    'bower_components/angular/angular.js',
+    'bower_components/lodash/lodash.js',
   ]
   .pipe flatten()
   .pipe gulp.dest 'www/lib'
