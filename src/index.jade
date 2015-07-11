@@ -1,0 +1,10 @@
+html(ng-app='ivelib')
+  body(ng-controller='mapCtrl')
+
+    div#map-canvas(style="width: 100%; height: 100%;")
+    div.search-view
+    input.search-key(type="text")
+
+    script(src="https://maps.googleapis.com/maps/api/js")
+    script(src="lib/angular.js")
+    script(src="app.js")
