@@ -1,8 +1,7 @@
 angular.module('ivelib', ['maps-api', 'station', 'statistics', 'map']);
 
 angular.module('ivelib').controller('mainCtrl', function(distanceService, statisticsService, Map) {
-  var map;
-  return map = Map.initialize();
+  return navigator.geolocation.getCurrentPosition(Map.initialize, Map.initialize);
 });
 
 angular.module('maps-api', []);
@@ -7450,8 +7449,15 @@ angular.module('maps-api').factory('distanceService', function(MAPS_API_KEY, DIS
 angular.module('map').factory('Map', function(Station) {
   var displayClosestStations, getCenterPosition, map;
   map = null;
-  getCenterPosition = function() {
-    return new google.maps.LatLng(48.882599, 2.322190);
+  getCenterPosition = function(position) {
+    var latitude, longitude, ref, ref1;
+    longitude = (ref = position.coords) != null ? ref.longitude : void 0;
+    latitude = (ref1 = position.coords) != null ? ref1.latitude : void 0;
+    if ((longitude != null) && (latitude != null)) {
+      return new google.maps.LatLng(latitude, longitude);
+    } else {
+      return new google.maps.LatLng(48.882599, 2.322190);
+    }
   };
   displayClosestStations = function(position, limit) {
     var bounds;
@@ -7473,11 +7479,12 @@ angular.module('map').factory('Map', function(Station) {
     });
   };
   return {
-    initialize: function() {
-      var input, mapCanvas, mapOptions, parisBounds, searchBox;
+    initialize: function(position) {
+      var center, input, mapCanvas, mapOptions, parisBounds, searchBox;
+      center = getCenterPosition(position);
       mapCanvas = document.getElementById('map-canvas');
       mapOptions = {
-        center: getCenterPosition(),
+        center: center,
         zoom: 16,
         zoomControl: false,
         mapTypeId: google.maps.MapTypeId.ROADMAP
@@ -7505,12 +7512,15 @@ angular.module('map').factory('Map', function(Station) {
           return map.fitBounds(bounds);
         });
         return new google.maps.Marker({
-          position: getCenterPosition(),
+          position: center,
           map: map,
           title: 'Your position'
         });
       });
-      displayClosestStations(getCenterPosition(), 10);
+      displayClosestStations(center, 10).then(function(bounds) {
+        bounds.extend(center);
+        return map.fitBounds(bounds);
+      });
       return map;
     }
   };

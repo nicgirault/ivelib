@@ -2,9 +2,13 @@ angular.module 'map'
 .factory 'Map', (Station) ->
   map = null
 
-  getCenterPosition = ->
-    # TODO: geolocalize
-    new google.maps.LatLng(48.882599, 2.322190)
+  getCenterPosition = (position) ->
+    longitude = position.coords?.longitude
+    latitude = position.coords?.latitude
+    if longitude? and latitude?
+      return new google.maps.LatLng(latitude, longitude)
+    else
+      return new google.maps.LatLng(48.882599, 2.322190)
 
   displayClosestStations = (position, limit) ->
     bounds = new google.maps.LatLngBounds()
@@ -21,10 +25,11 @@ angular.module 'map'
         bounds.extend position
       return bounds
 
-  initialize: ->
+  initialize: (position) ->
+    center = getCenterPosition(position)
     mapCanvas = document.getElementById 'map-canvas'
     mapOptions =
-      center: getCenterPosition()
+      center: center
       zoom: 16
       zoomControl: false
       mapTypeId: google.maps.MapTypeId.ROADMAP
@@ -61,10 +66,11 @@ angular.module 'map'
         map.fitBounds bounds
 
       new google.maps.Marker
-        position: getCenterPosition()
+        position: center
         map: map
         title: 'Your position'
 
-    displayClosestStations(getCenterPosition(), 10)
-
+    displayClosestStations(center, 10).then (bounds) ->
+      bounds.extend center
+      map.fitBounds bounds
     map

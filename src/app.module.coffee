@@ -2,7 +2,8 @@ angular.module 'ivelib', ['maps-api', 'station', 'statistics', 'map']
 
 angular.module 'ivelib'
 .controller 'mainCtrl', (distanceService, statisticsService, Map) ->
-  map = Map.initialize()
+  navigator.geolocation.getCurrentPosition(Map.initialize, Map.initialize)
+  # map = Map.initialize()
 
 
   # statisticsService.getHistoric stations[0].number, "Paris", (data) ->
