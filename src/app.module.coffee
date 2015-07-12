@@ -1,8 +1,13 @@
-angular.module 'ivelib', ['maps-api', 'station', 'statistics', 'map', 'ui.bootstrap']
+angular.module 'ivelib', ['maps-api', 'station', 'statistics', 'map', 'ui.bootstrap', 'itinerary']
 
 angular.module 'ivelib'
-.controller 'mainCtrl', (distanceService, statisticsService, Map) ->
+.controller 'mainCtrl', (Map, $scope, State) ->
   navigator.geolocation.getCurrentPosition(Map.initialize, Map.initialize)
+  $scope.state = State.getState()
+
+  $scope.$on 'state-update', ->
+    $scope.state = State.getState()
+
   # map = Map.initialize()
 
 

@@ -1,6 +1,47 @@
 html(ng-app='ivelib')
   head
     style.
+      .state {
+        position: absolute;
+        z-index: 10;
+        left: 8px;
+        top: 19px;
+        border-radius: 50%;
+        height: 56px;
+        width: 56px;
+        background-color: #db4437;
+        box-shadow: 0px 2px 10px rgba(0,0,0,.3),0px 0px 1px rgba(0,0,0,.1),inset 0px 1px 0px rgba(255,255,255,.25),inset 0px -1px 0px rgba(0,0,0,.15);
+      }
+      .state-content {
+        top: 13px;
+        position: relative;
+        text-align: center;
+        font-size: 20px;
+        font-weight: bold;
+      }
+      .help-box {
+        position: absolute;
+        z-index: 10;
+        background-color: #fff;
+        font-family: Roboto;
+        font-size: 15px;
+        font-weight: 300;
+        margin-left: 12px;
+        margin-top: 12px;
+        padding: 20px 11px 20px 13px;
+        text-overflow: ellipsis;
+        width: 80%;
+        left: 60px;
+        margin-top: 16px;
+        border: 1px solid transparent;
+        border-radius: 2px 0 0 2px;
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        outline: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+      
+      
       body {
         font: 10px sans-serif;
       }
@@ -44,7 +85,7 @@ html(ng-app='ivelib')
         font-family: Roboto;
         font-size: 15px;
         font-weight: 300;
-        margin-left: 12px;
+        margin-left: 60px;
         margin-top: 12px;
         padding: 20px 11px 20px 13px;
         text-overflow: ellipsis;
@@ -72,11 +113,20 @@ html(ng-app='ivelib')
       }
     link(rel="stylesheet" type="text/css" href="www/lib/bootstrap.css")
   body(ng-controller='mainCtrl')
-    input.controls(id="pac-input" type="text" placeholder="Ou allez-vous ?")
+    .state
+      .state-content {{state}}
+    .help-box(ng-show="state == 1")
+      | Selectionez une station velib de depart
+    input.controls(
+      ng-show="state == 2"
+      id="pac-input"
+      type="text"
+      placeholder="Ou allez-vous ?"
+    )
+    .help-box(ng-show="state == 3")
+      | Selectionez une station velib d'arrivee
     div#map-canvas(style="width: 100%; height: 100%;")
     div.search-view
-    input.search-key(type="text")
-    div#statistics
     script(src="https://maps.googleapis.com/maps/api/js?libraries=places")
     script(src="www/lib/angular.js")
     script(src="www/lib/ui-bootstrap-tpls.js")

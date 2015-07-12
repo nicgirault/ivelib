@@ -1,22 +1,87 @@
-angular.module('ivelib', ['maps-api', 'station', 'statistics', 'map', 'ui.bootstrap']);
+angular.module('ivelib', ['maps-api', 'station', 'statistics', 'map', 'ui.bootstrap', 'itinerary']);
 
-angular.module('ivelib').controller('mainCtrl', function(distanceService, statisticsService, Map) {
-  return navigator.geolocation.getCurrentPosition(Map.initialize, Map.initialize);
+angular.module('ivelib').controller('mainCtrl', function(Map, $scope, State) {
+  navigator.geolocation.getCurrentPosition(Map.initialize, Map.initialize);
+  $scope.state = State.getState();
+  return $scope.$on('state-update', function() {
+    return $scope.state = State.getState();
+  });
 });
 
 angular.module('maps-api', []);
 
 angular.module('maps-api').constant('MAPS_API_KEY', 'AIzaSyDL-EFCmlespdMNy-nPlKiqgxLBSGHSE0c').constant('DISTANCE_API_URL', 'https://maps.googleapis.com/maps/api/distancematrix/json');
 
+angular.module('itinerary', []);
+
+angular.module('itinerary').factory('State', function($rootScope) {
+  var state;
+  state = 1;
+  return {
+    getState: function() {
+      return state;
+    },
+    setState: function(value) {
+      state = value;
+      return $rootScope.$broadcast('state-update');
+    }
+  };
+}).factory('Itinerary', function() {
+  var itinerarySteps, map;
+  map = null;
+  itinerarySteps = {
+    currentPosition: null,
+    originVelibStation: null,
+    destinationVelibStation: null,
+    destionation: null
+  };
+  return {
+    setMap: function(value) {
+      console.log(map);
+      return map = value;
+    },
+    setCurrentPosition: function(value) {
+      return itinerarySteps.currentPosition = value;
+    },
+    setOriginVelibStation: function(value) {
+      return itinerarySteps.originVelibStation = value;
+    },
+    setDestinationVelibStation: function(value) {
+      return itinerarySteps.destinationVelibStation = value;
+    },
+    setDestination: function(value) {
+      return itinerarySteps.destionation = value;
+    },
+    computeItinerary: function() {
+      var directionsDisplay, directionsService, end, request, start;
+      directionsService = new google.maps.DirectionsService();
+      directionsDisplay = new google.maps.DirectionsRenderer();
+      directionsDisplay.setMap(map);
+      start = itinerarySteps.currentPosition;
+      end = itinerarySteps.destionation.geometry.location;
+      request = {
+        origin: start,
+        destination: end,
+        travelMode: google.maps.TravelMode.DRIVING
+      };
+      return directionsService.route(request, function(result, status) {
+        if (status === google.maps.DirectionsStatus.OK) {
+          return directionsDisplay.setDirections(result);
+        }
+      });
+    }
+  };
+});
+
 angular.module('map', ['station', 'ui.bootstrap']);
-
-angular.module('statistics', []);
-
-angular.module('statistics').constant('STATISTICS_API_URL', 'http://62.4.25.210/velib-statistics');
 
 angular.module('station', ['ui.bootstrap', 'statistics']);
 
 angular.module('station').constant('apiKey', '7ceedd184447f8d34c74c1dde423c2580b4c82a2').constant('apiURL', 'https://api.jcdecaux.com/vls/v1').constant('CONTRACT_NAME', 'Paris');
+
+angular.module('statistics', []);
+
+angular.module('statistics').constant('STATISTICS_API_URL', 'http://62.4.25.210/velib-statistics');
 
 angular.module('station').constant('STATIONS', [
   {
@@ -7446,8 +7511,8 @@ angular.module('maps-api').factory('distanceService', function(MAPS_API_KEY, DIS
   };
 });
 
-angular.module('map').factory('Map', function(Station, $modal) {
-  var displayClosestStations, getCenterPosition, map, onStationClickFactory;
+angular.module('map').factory('Map', function(Station, $modal, Itinerary, State) {
+  var displayClosestStations, displaySearchBox, getCenterPosition, map, onStationClickFactory;
   map = null;
   getCenterPosition = function(position) {
     var latitude, longitude, ref, ref1;
@@ -7459,7 +7524,7 @@ angular.module('map').factory('Map', function(Station, $modal) {
       return new google.maps.LatLng(48.882599, 2.322190);
     }
   };
-  displayClosestStations = function(position, limit) {
+  displayClosestStations = function(position, step, limit) {
     var bounds;
     bounds = new google.maps.LatLngBounds();
     return Station.getStationsToDisplay(position, limit).then(function(stations) {
@@ -7474,15 +7539,42 @@ angular.module('map').factory('Map', function(Station, $modal) {
           icon: station.iconUrl
         });
         bounds.extend(position);
-        google.maps.event.addListener(marker, 'click', onStationClickFactory(station));
+        google.maps.event.addListener(marker, 'click', onStationClickFactory(station, step));
       }
       return bounds;
     });
   };
-  onStationClickFactory = function(station) {
+  displaySearchBox = function() {
+    var input, parisBounds, searchBox;
+    parisBounds = new google.maps.LatLngBounds(new google.maps.LatLng(48.750999, 2.021247), new google.maps.LatLng(48.950481, 2.542754));
+    input = document.getElementById('pac-input');
+    map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+    searchBox = new google.maps.places.SearchBox(input);
+    searchBox.setBounds(parisBounds);
+    return google.maps.event.addListener(searchBox, 'places_changed', function() {
+      var destination, marker, places;
+      places = searchBox.getPlaces();
+      if (places.length === 0) {
+        return;
+      }
+      destination = places[0];
+      marker = new google.maps.Marker({
+        map: map,
+        title: destination.name,
+        position: destination.geometry.location
+      });
+      Itinerary.setDestination(destination);
+      State.setState(3);
+      return displayClosestStations(destination.geometry.location, 'destination', 10).then(function(bounds) {
+        bounds.extend(destination.geometry.location);
+        return map.fitBounds(bounds);
+      });
+    });
+  };
+  onStationClickFactory = function(station, step) {
     return function() {
       var modalInstance;
-      return modalInstance = $modal.open({
+      modalInstance = $modal.open({
         templateUrl: 'www/templates/stationModal.html',
         size: 'lg',
         controller: 'StationModalCtrl',
@@ -7492,12 +7584,27 @@ angular.module('map').factory('Map', function(Station, $modal) {
           }
         }
       });
+      if (step === 'origin') {
+        modalInstance.result.then(function(station) {
+          Itinerary.setOriginVelibStation(station);
+          State.setState(2);
+          return displaySearchBox();
+        });
+      }
+      if (step === 'destination') {
+        return modalInstance.result.then(function() {
+          Itinerary.setDestinationVelibStation(station);
+          State.setState(4);
+          return Itinerary.computeItinerary();
+        });
+      }
     };
   };
   return {
     initialize: function(position) {
-      var center, input, mapCanvas, mapOptions, parisBounds, searchBox;
+      var center, mapCanvas, mapOptions;
       center = getCenterPosition(position);
+      Itinerary.setCurrentPosition(center);
       mapCanvas = document.getElementById('map-canvas');
       mapOptions = {
         center: center,
@@ -7506,38 +7613,61 @@ angular.module('map').factory('Map', function(Station, $modal) {
         mapTypeId: google.maps.MapTypeId.ROADMAP
       };
       map = new google.maps.Map(mapCanvas, mapOptions);
-      parisBounds = new google.maps.LatLngBounds(new google.maps.LatLng(48.750999, 2.021247), new google.maps.LatLng(48.950481, 2.542754));
-      input = document.getElementById('pac-input');
-      map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
-      searchBox = new google.maps.places.SearchBox(input);
-      searchBox.setBounds(parisBounds);
-      google.maps.event.addListener(searchBox, 'places_changed', function() {
-        var destination, marker, places;
-        places = searchBox.getPlaces();
-        if (places.length === 0) {
-          return;
-        }
-        destination = places[0];
-        marker = new google.maps.Marker({
-          map: map,
-          title: destination.name,
-          position: destination.geometry.location
-        });
-        return displayClosestStations(destination.geometry.location, 10).then(function(bounds) {
-          bounds.extend(destination.geometry.location);
-          return map.fitBounds(bounds);
-        });
-      });
+      Itinerary.setMap(map);
       new google.maps.Marker({
         position: center,
         map: map,
         title: 'Your position'
       });
-      displayClosestStations(center, 10).then(function(bounds) {
+      displayClosestStations(center, 'origin', 10).then(function(bounds) {
         bounds.extend(center);
         return map.panToBounds(bounds);
       });
       return map;
+    }
+  };
+});
+
+angular.module('station').factory('Station', function(STATIONS, apiURL, apiKey, CONTRACT_NAME, $http, $q) {
+  var sortByDistance;
+  sortByDistance = function(position) {
+    return _.sortBy(STATIONS, function(station) {
+      var x, y;
+      x = station.latitude - position.A;
+      y = station.longitude - position.F;
+      return x * x + y * y;
+    });
+  };
+  return {
+    getStationsToDisplay: function(position, limit) {
+      var count, promises, station, stations, stationsToDisplay;
+      stations = sortByDistance(position);
+      count = 0;
+      stationsToDisplay = [];
+      promises = (function() {
+        var i, len, ref, results;
+        ref = stations.slice(0, limit);
+        results = [];
+        for (i = 0, len = ref.length; i < len; i++) {
+          station = ref[i];
+          results.push($http.get(apiURL + "/stations/" + station.number + "?contract=" + CONTRACT_NAME + "&apiKey=" + apiKey));
+        }
+        return results;
+      })();
+      count = 0;
+      return $q.all(promises).then(function(result) {
+        angular.forEach(result, function(response) {
+          var stationData;
+          stationData = response.data;
+          if (stationData.status === 'OPEN' && stationData.available_bikes > 2) {
+            count += 1;
+          }
+          stationData.iconUrl = 'www/img/take-' + Math.ceil(stationData.available_bikes / stationData.bike_stands * 10) + '.png';
+          stationData.title = stationData.available_bikes + " velo dispo sur " + stationData.bike_stands;
+          return stationsToDisplay.push(stationData);
+        });
+        return stationsToDisplay;
+      });
     }
   };
 });
@@ -7588,51 +7718,7 @@ angular.module('statistics').factory('statisticsService', function(STATISTICS_AP
   };
 });
 
-angular.module('station').factory('Station', function(STATIONS, apiURL, apiKey, CONTRACT_NAME, $http, $q) {
-  var sortByDistance;
-  sortByDistance = function(position) {
-    return _.sortBy(STATIONS, function(station) {
-      var x, y;
-      x = station.latitude - position.A;
-      y = station.longitude - position.F;
-      return x * x + y * y;
-    });
-  };
-  return {
-    getStationsToDisplay: function(position, limit) {
-      var count, promises, station, stations, stationsToDisplay;
-      stations = sortByDistance(position);
-      count = 0;
-      stationsToDisplay = [];
-      promises = (function() {
-        var i, len, ref, results;
-        ref = stations.slice(0, limit);
-        results = [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          station = ref[i];
-          results.push($http.get(apiURL + "/stations/" + station.number + "?contract=" + CONTRACT_NAME + "&apiKey=" + apiKey));
-        }
-        return results;
-      })();
-      count = 0;
-      return $q.all(promises).then(function(result) {
-        angular.forEach(result, function(response) {
-          var stationData;
-          stationData = response.data;
-          if (stationData.status === 'OPEN' && stationData.available_bikes > 2) {
-            count += 1;
-          }
-          stationData.iconUrl = 'www/img/take-' + Math.ceil(stationData.available_bikes / stationData.bike_stands * 10) + '.png';
-          stationData.title = stationData.available_bikes + " velo dispo sur " + stationData.bike_stands;
-          return stationsToDisplay.push(stationData);
-        });
-        return stationsToDisplay;
-      });
-    }
-  };
-});
-
-angular.module('station').controller('StationModalCtrl', function($scope, $modal, $modalInstance, station, statisticsService, $timeout) {
+angular.module('station').controller('StationModalCtrl', function($scope, $modal, $modalInstance, station, statisticsService, $timeout, Itinerary, State) {
   $scope.station = station;
   $timeout(function() {
     var modalWidth;
@@ -7643,8 +7729,7 @@ angular.module('station').controller('StationModalCtrl', function($scope, $modal
       return statisticsService.drawChart(container, station.number, modalWidth - 100, Math.floor(modalWidth / 2), data);
     });
   }, 300);
-  console.log(station);
-  $scope.ok = function() {
+  $scope.select = function() {
     $modalInstance.close(station);
   };
   return $scope.cancel = function() {

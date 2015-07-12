@@ -1,4 +1,4 @@
-angular.module('station').controller 'StationModalCtrl', ($scope, $modal, $modalInstance, station, statisticsService, $timeout) ->
+angular.module('station').controller 'StationModalCtrl', ($scope, $modal, $modalInstance, station, statisticsService, $timeout, Itinerary, State) ->
   $scope.station = station
   $timeout () ->
     modalWidth = document.getElementsByClassName('modal-body')[0].offsetWidth
@@ -7,10 +7,8 @@ angular.module('station').controller 'StationModalCtrl', ($scope, $modal, $modal
         container = d3.select '#chart'
         statisticsService.drawChart(container, station.number, modalWidth - 100, Math.floor(modalWidth/2), data)
   , 300
-  console.log station
 
-
-  $scope.ok = ->
+  $scope.select = ->
     $modalInstance.close station
     return
 
