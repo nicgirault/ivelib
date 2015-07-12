@@ -7479,6 +7479,7 @@ angular.module('map').factory('Map', function(Station) {
       mapOptions = {
         center: getCenterPosition(),
         zoom: 16,
+        zoomControl: false,
         mapTypeId: google.maps.MapTypeId.ROADMAP
       };
       map = new google.maps.Map(mapCanvas, mapOptions);

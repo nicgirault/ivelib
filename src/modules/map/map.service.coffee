@@ -26,6 +26,7 @@ angular.module 'map'
     mapOptions =
       center: getCenterPosition()
       zoom: 16
+      zoomControl: false
       mapTypeId: google.maps.MapTypeId.ROADMAP
 
     map = new google.maps.Map mapCanvas, mapOptions
