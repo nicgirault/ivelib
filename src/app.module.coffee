@@ -3,7 +3,6 @@ angular.module 'ivelib', ['maps-api', 'station', 'statistics', 'map']
 angular.module 'ivelib'
 .controller 'mainCtrl', (distanceService, statisticsService, Map) ->
   map = Map.initialize()
-  Map.displayClosestStations 7
 
 
   # statisticsService.getHistoric stations[0].number, "Paris", (data) ->

@@ -6,6 +6,21 @@ angular.module 'map'
     # TODO: geolocalize
     new google.maps.LatLng(48.882599, 2.322190)
 
+  displayClosestStations = (position, limit) ->
+    bounds = new google.maps.LatLngBounds()
+
+    Station.getStationsToDisplay(position, limit).then (stations) ->
+      for station in stations
+        position = new google.maps.LatLng(station.position.lat, station.position.lng)
+        new google.maps.Marker({
+          position: position
+          map: map
+          title: station.title
+          icon: station.iconUrl
+        })
+        bounds.extend position
+      return bounds
+
   initialize: ->
     mapCanvas = document.getElementById 'map-canvas'
     mapOptions =
@@ -15,36 +30,40 @@ angular.module 'map'
 
     map = new google.maps.Map mapCanvas, mapOptions
 
+    # Create the search box and link it to the UI element.
     parisBounds = new google.maps.LatLngBounds(
       new google.maps.LatLng(48.750999, 2.021247),
       new google.maps.LatLng(48.950481, 2.542754)
     )
 
-    # Create the search box and link it to the UI element.
     input = document.getElementById('pac-input')
     map.controls[google.maps.ControlPosition.TOP_LEFT].push input
     searchBox = new google.maps.places.SearchBox input
+    searchBox.setBounds parisBounds
+
     # Listen for the event fired when the user selects an item from the
     # pick list. Retrieve the matching places for that item.
     google.maps.event.addListener searchBox, 'places_changed', ->
       places = searchBox.getPlaces()
       if places.length == 0
         return
-      console.log 'yoyo'
 
-    new google.maps.Marker
-      position: getCenterPosition()
-      map: map
-      title: 'Your position'
-    map
+      destination = places[0]
 
-  displayClosestStations: (limit) ->
-    stations = Station.sortByDistance getCenterPosition()
+      marker = new google.maps.Marker({
+        map: map,
+        title: destination.name,
+        position: destination.geometry.location
+      })
+      displayClosestStations(destination.geometry.location, 10).then (bounds) ->
+        bounds.extend destination.geometry.location
+        map.fitBounds bounds
 
-    index = 0
-    while index < limit
       new google.maps.Marker
-        position: new google.maps.LatLng(stations[index].latitude, stations[index].longitude)
+        position: getCenterPosition()
         map: map
-        title: stations[index].address
-      index += 1
+        title: 'Your position'
+
+    displayClosestStations(getCenterPosition(), 10)
+
+    map

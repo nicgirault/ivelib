@@ -13,7 +13,7 @@ gulp.task 'clean:build', ->
   del ['build/**/*']
 
 gulp.task 'clean:www', ->
-  del ['www/**/*.js', 'www/**/*.html']
+  del ['www/**/*.js', 'www/**/*.html', 'www/**/*.png']
 
 gulp.task 'concat', ['clean:build'], ->
   gulp.src [
@@ -31,6 +31,13 @@ gulp.task 'coffee', ['concat'], ->
   .pipe gulp.dest 'www'
 
 gulp.task 'jade', ->
+  gulp.src [
+    'src/**/*.png'
+  ]
+  .pipe flatten()
+  .pipe gulp.dest 'www/img'
+
+gulp.task 'static', ->
   gulp.src 'src/**/*.jade'
   .pipe jade pretty: true
   .pipe gulp.dest '.'
@@ -45,7 +52,7 @@ gulp.task 'vendor', ->
   .pipe gulp.dest 'www/lib'
 
 gulp.task 'build', ->
-  runSequence('clean:www', ['coffee', 'jade', 'vendor'])
+  runSequence('clean:www', ['coffee', 'jade', 'vendor', 'static'])
 
 gulp.task 'watch', ['build'], ->
   gulp.watch 'src/**/*.coffee', ['coffee']

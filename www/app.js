@@ -2,19 +2,18 @@ angular.module('ivelib', ['maps-api', 'station', 'statistics', 'map']);
 
 angular.module('ivelib').controller('mainCtrl', function(distanceService, statisticsService, Map) {
   var map;
-  map = Map.initialize();
-  return Map.displayClosestStations(7);
+  return map = Map.initialize();
 });
 
 angular.module('maps-api', []);
 
 angular.module('maps-api').constant('MAPS_API_KEY', 'AIzaSyDL-EFCmlespdMNy-nPlKiqgxLBSGHSE0c').constant('DISTANCE_API_URL', 'https://maps.googleapis.com/maps/api/distancematrix/json');
 
+angular.module('map', ['station']);
+
 angular.module('station', []);
 
-angular.module('station').constant('apiKey', '7ceedd184447f8d34c74c1dde423c2580b4c82a2').constant('apiURL', 'https://api.jcdecaux.com/vls/v1');
-
-angular.module('map', ['station']);
+angular.module('station').constant('apiKey', '7ceedd184447f8d34c74c1dde423c2580b4c82a2').constant('apiURL', 'https://api.jcdecaux.com/vls/v1').constant('CONTRACT_NAME', 'Paris');
 
 angular.module('statistics', []);
 
@@ -7448,24 +7447,30 @@ angular.module('maps-api').factory('distanceService', function(MAPS_API_KEY, DIS
   };
 });
 
-angular.module('station').factory('Station', function(STATIONS) {
-  return {
-    sortByDistance: function(position) {
-      return _.sortBy(STATIONS, function(station) {
-        var x, y;
-        x = station.latitude - position.A;
-        y = station.longitude - position.F;
-        return x * x + y * y;
-      });
-    }
-  };
-});
-
 angular.module('map').factory('Map', function(Station) {
-  var getCenterPosition, map;
+  var displayClosestStations, getCenterPosition, map;
   map = null;
   getCenterPosition = function() {
     return new google.maps.LatLng(48.882599, 2.322190);
+  };
+  displayClosestStations = function(position, limit) {
+    var bounds;
+    bounds = new google.maps.LatLngBounds();
+    return Station.getStationsToDisplay(position, limit).then(function(stations) {
+      var i, len, station;
+      for (i = 0, len = stations.length; i < len; i++) {
+        station = stations[i];
+        position = new google.maps.LatLng(station.position.lat, station.position.lng);
+        new google.maps.Marker({
+          position: position,
+          map: map,
+          title: station.title,
+          icon: station.iconUrl
+        });
+        bounds.extend(position);
+      }
+      return bounds;
+    });
   };
   return {
     initialize: function() {
@@ -7481,35 +7486,75 @@ angular.module('map').factory('Map', function(Station) {
       input = document.getElementById('pac-input');
       map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
       searchBox = new google.maps.places.SearchBox(input);
+      searchBox.setBounds(parisBounds);
       google.maps.event.addListener(searchBox, 'places_changed', function() {
-        var places;
+        var destination, marker, places;
         places = searchBox.getPlaces();
         if (places.length === 0) {
           return;
         }
-        return console.log('yoyo');
-      });
-      new google.maps.Marker({
-        position: getCenterPosition(),
-        map: map,
-        title: 'Your position'
-      });
-      return map;
-    },
-    displayClosestStations: function(limit) {
-      var index, results, stations;
-      stations = Station.sortByDistance(getCenterPosition());
-      index = 0;
-      results = [];
-      while (index < limit) {
-        new google.maps.Marker({
-          position: new google.maps.LatLng(stations[index].latitude, stations[index].longitude),
+        destination = places[0];
+        marker = new google.maps.Marker({
           map: map,
-          title: stations[index].address
+          title: destination.name,
+          position: destination.geometry.location
         });
-        results.push(index += 1);
-      }
-      return results;
+        displayClosestStations(destination.geometry.location, 10).then(function(bounds) {
+          bounds.extend(destination.geometry.location);
+          return map.fitBounds(bounds);
+        });
+        return new google.maps.Marker({
+          position: getCenterPosition(),
+          map: map,
+          title: 'Your position'
+        });
+      });
+      displayClosestStations(getCenterPosition(), 10);
+      return map;
+    }
+  };
+});
+
+angular.module('station').factory('Station', function(STATIONS, apiURL, apiKey, CONTRACT_NAME, $http, $q) {
+  var sortByDistance;
+  sortByDistance = function(position) {
+    return _.sortBy(STATIONS, function(station) {
+      var x, y;
+      x = station.latitude - position.A;
+      y = station.longitude - position.F;
+      return x * x + y * y;
+    });
+  };
+  return {
+    getStationsToDisplay: function(position, limit) {
+      var count, promises, station, stations, stationsToDisplay;
+      stations = sortByDistance(position);
+      count = 0;
+      stationsToDisplay = [];
+      promises = (function() {
+        var i, len, ref, results;
+        ref = stations.slice(0, limit);
+        results = [];
+        for (i = 0, len = ref.length; i < len; i++) {
+          station = ref[i];
+          results.push($http.get(apiURL + "/stations/" + station.number + "?contract=" + CONTRACT_NAME + "&apiKey=" + apiKey));
+        }
+        return results;
+      })();
+      count = 0;
+      return $q.all(promises).then(function(result) {
+        angular.forEach(result, function(response) {
+          var stationData;
+          stationData = response.data;
+          if (stationData.status === 'OPEN' && stationData.available_bikes > 2) {
+            count += 1;
+          }
+          stationData.iconUrl = 'www/img/take-' + Math.ceil(stationData.available_bikes / stationData.bike_stands * 10) + '.png';
+          stationData.title = stationData.available_bikes + " velo dispo";
+          return stationsToDisplay.push(stationData);
+        });
+        return stationsToDisplay;
+      });
     }
   };
 });
