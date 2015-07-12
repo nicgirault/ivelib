@@ -1,5 +1,5 @@
 angular.module 'map'
-.factory 'Map', (Station) ->
+.factory 'Map', (Station, $modal) ->
   map = null
 
   getCenterPosition = (position) ->
@@ -16,14 +16,24 @@ angular.module 'map'
     Station.getStationsToDisplay(position, limit).then (stations) ->
       for station in stations
         position = new google.maps.LatLng(station.position.lat, station.position.lng)
-        new google.maps.Marker({
+        marker = new google.maps.Marker({
           position: position
           map: map
           title: station.title
           icon: station.iconUrl
         })
         bounds.extend position
+
+        google.maps.event.addListener marker, 'click', onStationClickFactory(station)
       return bounds
+
+  onStationClickFactory = (station) ->
+    ->
+      modalInstance = $modal.open
+        templateUrl: 'www/templates/stationModal.html'
+        size: 'lg'
+        controller: 'StationModalCtrl'
+        resolve: station: -> station
 
   initialize: (position) ->
     center = getCenterPosition(position)
@@ -31,7 +41,7 @@ angular.module 'map'
     mapOptions =
       center: center
       zoom: 16
-      zoomControl: false
+      disableDefaultUI: true
       mapTypeId: google.maps.MapTypeId.ROADMAP
 
     map = new google.maps.Map mapCanvas, mapOptions
@@ -65,12 +75,12 @@ angular.module 'map'
         bounds.extend destination.geometry.location
         map.fitBounds bounds
 
-      new google.maps.Marker
-        position: center
-        map: map
-        title: 'Your position'
+    new google.maps.Marker
+      position: center
+      map: map
+      title: 'Your position'
 
     displayClosestStations(center, 10).then (bounds) ->
       bounds.extend center
-      map.fitBounds bounds
+      map.panToBounds bounds
     map

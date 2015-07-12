@@ -1,0 +1,10 @@
+.modal-header
+  h3.modal-title {{station.name}}
+.modal-body
+  ul
+    li Status: {{station.status}}
+    li Nombre actuel de vélos: {{station.available_bikes}} / {{station.bike_stands}}
+  #chart
+.modal-footer
+  button.btn.btn-primary(ng-click='ok()') OK
+  button.btn.btn-warning(ng-click='cancel()') Cancel

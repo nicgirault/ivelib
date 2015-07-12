@@ -1,4 +1,4 @@
-angular.module('ivelib', ['maps-api', 'station', 'statistics', 'map']);
+angular.module('ivelib', ['maps-api', 'station', 'statistics', 'map', 'ui.bootstrap']);
 
 angular.module('ivelib').controller('mainCtrl', function(distanceService, statisticsService, Map) {
   return navigator.geolocation.getCurrentPosition(Map.initialize, Map.initialize);
@@ -8,15 +8,15 @@ angular.module('maps-api', []);
 
 angular.module('maps-api').constant('MAPS_API_KEY', 'AIzaSyDL-EFCmlespdMNy-nPlKiqgxLBSGHSE0c').constant('DISTANCE_API_URL', 'https://maps.googleapis.com/maps/api/distancematrix/json');
 
-angular.module('map', ['station']);
-
-angular.module('station', []);
-
-angular.module('station').constant('apiKey', '7ceedd184447f8d34c74c1dde423c2580b4c82a2').constant('apiURL', 'https://api.jcdecaux.com/vls/v1').constant('CONTRACT_NAME', 'Paris');
+angular.module('map', ['station', 'ui.bootstrap']);
 
 angular.module('statistics', []);
 
 angular.module('statistics').constant('STATISTICS_API_URL', 'http://62.4.25.210/velib-statistics');
+
+angular.module('station', ['ui.bootstrap', 'statistics']);
+
+angular.module('station').constant('apiKey', '7ceedd184447f8d34c74c1dde423c2580b4c82a2').constant('apiURL', 'https://api.jcdecaux.com/vls/v1').constant('CONTRACT_NAME', 'Paris');
 
 angular.module('station').constant('STATIONS', [
   {
@@ -7446,8 +7446,8 @@ angular.module('maps-api').factory('distanceService', function(MAPS_API_KEY, DIS
   };
 });
 
-angular.module('map').factory('Map', function(Station) {
-  var displayClosestStations, getCenterPosition, map;
+angular.module('map').factory('Map', function(Station, $modal) {
+  var displayClosestStations, getCenterPosition, map, onStationClickFactory;
   map = null;
   getCenterPosition = function(position) {
     var latitude, longitude, ref, ref1;
@@ -7463,20 +7463,36 @@ angular.module('map').factory('Map', function(Station) {
     var bounds;
     bounds = new google.maps.LatLngBounds();
     return Station.getStationsToDisplay(position, limit).then(function(stations) {
-      var i, len, station;
+      var i, len, marker, station;
       for (i = 0, len = stations.length; i < len; i++) {
         station = stations[i];
         position = new google.maps.LatLng(station.position.lat, station.position.lng);
-        new google.maps.Marker({
+        marker = new google.maps.Marker({
           position: position,
           map: map,
           title: station.title,
           icon: station.iconUrl
         });
         bounds.extend(position);
+        google.maps.event.addListener(marker, 'click', onStationClickFactory(station));
       }
       return bounds;
     });
+  };
+  onStationClickFactory = function(station) {
+    return function() {
+      var modalInstance;
+      return modalInstance = $modal.open({
+        templateUrl: 'www/templates/stationModal.html',
+        size: 'lg',
+        controller: 'StationModalCtrl',
+        resolve: {
+          station: function() {
+            return station;
+          }
+        }
+      });
+    };
   };
   return {
     initialize: function(position) {
@@ -7486,7 +7502,7 @@ angular.module('map').factory('Map', function(Station) {
       mapOptions = {
         center: center,
         zoom: 16,
-        zoomControl: false,
+        disableDefaultUI: true,
         mapTypeId: google.maps.MapTypeId.ROADMAP
       };
       map = new google.maps.Map(mapCanvas, mapOptions);
@@ -7507,21 +7523,67 @@ angular.module('map').factory('Map', function(Station) {
           title: destination.name,
           position: destination.geometry.location
         });
-        displayClosestStations(destination.geometry.location, 10).then(function(bounds) {
+        return displayClosestStations(destination.geometry.location, 10).then(function(bounds) {
           bounds.extend(destination.geometry.location);
           return map.fitBounds(bounds);
         });
-        return new google.maps.Marker({
-          position: center,
-          map: map,
-          title: 'Your position'
-        });
+      });
+      new google.maps.Marker({
+        position: center,
+        map: map,
+        title: 'Your position'
       });
       displayClosestStations(center, 10).then(function(bounds) {
         bounds.extend(center);
-        return map.fitBounds(bounds);
+        return map.panToBounds(bounds);
       });
       return map;
+    }
+  };
+});
+
+angular.module('statistics').factory('statisticsService', function(STATISTICS_API_URL, $http) {
+  return {
+    getHistoric: function(station_id, contract_name, callback) {
+      var start;
+      start = new Date().getTime() - 24 * 3600 * 1000;
+      return $http.get(STATISTICS_API_URL + "/station/" + contract_name + "/" + station_id + "?start=" + start).then(function(response) {
+        return response.data.data;
+      });
+    },
+    drawChart: function(container, station_id, width, height, data) {
+      var line, margin, maxLine, svg, x, xAxis, y, yAxis;
+      margin = {
+        top: 20,
+        right: 20,
+        bottom: 30,
+        left: 50
+      };
+      width = width - margin.left - margin.right;
+      height = height - margin.top - margin.bottom;
+      x = d3.time.scale().range([0, width]);
+      y = d3.scale.linear().range([height, 0]);
+      xAxis = d3.svg.axis().scale(x).ticks(d3.time.hout, 2).tickFormat(d3.time.format('%H:%M')).orient('bottom');
+      yAxis = d3.svg.axis().scale(y).orient('left');
+      line = d3.svg.line().x(function(d) {
+        return x(new Date(d.last_update));
+      }).y(function(d) {
+        return y(d.available_bikes);
+      });
+      maxLine = d3.svg.line().x(function(d) {
+        return x(new Date(d.last_update));
+      }).y(function(d) {
+        return y(d.available_bike_stands + d.available_bikes);
+      });
+      svg = container.append('svg').attr('id', 'station-' + station_id).attr('width', width + margin.left + margin.right).attr('height', height + margin.top + margin.bottom).append('g').attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+      x.domain(d3.extent(data, function(d) {
+        return new Date(d.last_update);
+      }));
+      y.domain([0, data[0].bike_stands]);
+      svg.append('g').attr('class', 'x axis').attr('transform', 'translate(0,' + height + ')').call(xAxis);
+      svg.append('g').attr('class', 'y axis').call(yAxis);
+      svg.append('path').datum(data).attr('class', 'line').attr('d', line);
+      return svg.append('path').datum(data).attr('class', 'max-line').attr('d', maxLine);
     }
   };
 });
@@ -7561,7 +7623,7 @@ angular.module('station').factory('Station', function(STATIONS, apiURL, apiKey, 
             count += 1;
           }
           stationData.iconUrl = 'www/img/take-' + Math.ceil(stationData.available_bikes / stationData.bike_stands * 10) + '.png';
-          stationData.title = stationData.available_bikes + " velo dispo";
+          stationData.title = stationData.available_bikes + " velo dispo sur " + stationData.bike_stands;
           return stationsToDisplay.push(stationData);
         });
         return stationsToDisplay;
@@ -7570,48 +7632,22 @@ angular.module('station').factory('Station', function(STATIONS, apiURL, apiKey, 
   };
 });
 
-angular.module('statistics').factory('statisticsService', function(STATISTICS_API_URL, $http) {
-  return {
-    getHistoric: function(station_id, contract_name, callback) {
-      return $http.get(STATISTICS_API_URL + "/station/" + contract_name + "/" + station_id).then(function(response) {
-        return callback(response.data.data);
-      });
-    },
-    drawChart: function(container, station_id, width, height, data) {
-      var line, margin, maxLine, svg, x, xAxis, y, yAxis;
-      console.log(container);
-      console.log(data);
-      margin = {
-        top: 20,
-        right: 20,
-        bottom: 30,
-        left: 50
-      };
-      width = width - margin.left - margin.right;
-      height = height - margin.top - margin.bottom;
-      x = d3.time.scale().range([0, width]);
-      y = d3.scale.linear().range([height, 0]);
-      xAxis = d3.svg.axis().scale(x).ticks(d3.time.minute, 30).tickFormat(d3.time.format('%H:%M')).orient('bottom');
-      yAxis = d3.svg.axis().scale(y).orient('left');
-      line = d3.svg.line().x(function(d) {
-        return x(new Date(d.last_update));
-      }).y(function(d) {
-        return y(d.available_bikes);
-      });
-      maxLine = d3.svg.line().x(function(d) {
-        return x(new Date(d.last_update));
-      }).y(function(d) {
-        return y(d.available_bike_stands + d.available_bikes);
-      });
-      svg = container.append('svg').attr('id', 'station-' + station_id).attr('width', width + margin.left + margin.right).attr('height', height + margin.top + margin.bottom).append('g').attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
-      x.domain(d3.extent(data, function(d) {
-        return new Date(d.last_update);
-      }));
-      y.domain([0, data[0].bike_stands]);
-      svg.append('g').attr('class', 'x axis').attr('transform', 'translate(0,' + height + ')').call(xAxis);
-      svg.append('g').attr('class', 'y axis').call(yAxis);
-      svg.append('path').datum(data).attr('class', 'line').attr('d', line);
-      return svg.append('path').datum(data).attr('class', 'max-line').attr('d', maxLine);
-    }
+angular.module('station').controller('StationModalCtrl', function($scope, $modal, $modalInstance, station, statisticsService, $timeout) {
+  $scope.station = station;
+  $timeout(function() {
+    var modalWidth;
+    modalWidth = document.getElementsByClassName('modal-body')[0].offsetWidth;
+    return statisticsService.getHistoric(station.number, station.contract_name).then(function(data) {
+      var container;
+      container = d3.select('#chart');
+      return statisticsService.drawChart(container, station.number, modalWidth - 100, Math.floor(modalWidth / 2), data);
+    });
+  }, 300);
+  console.log(station);
+  $scope.ok = function() {
+    $modalInstance.close(station);
+  };
+  return $scope.cancel = function() {
+    $modalInstance.dismiss('cancel');
   };
 });

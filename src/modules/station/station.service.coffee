@@ -22,7 +22,7 @@ angular.module 'station'
         if stationData.status == 'OPEN' and stationData.available_bikes > 2
           count += 1
         stationData.iconUrl = 'www/img/take-' + Math.ceil(stationData.available_bikes / stationData.bike_stands * 10) + '.png'
-        stationData.title = "#{stationData.available_bikes} velo dispo"
+        stationData.title = "#{stationData.available_bikes} velo dispo sur #{stationData.bike_stands}"
         stationsToDisplay.push stationData
 
       return stationsToDisplay

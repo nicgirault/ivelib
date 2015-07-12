@@ -1,1 +1,1 @@
-angular.module 'map', ['station']
+angular.module 'map', ['station', 'ui.bootstrap']

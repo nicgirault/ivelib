@@ -1,12 +1,11 @@
 angular.module 'statistics'
 .factory 'statisticsService', (STATISTICS_API_URL, $http) ->
   getHistoric: (station_id, contract_name, callback) ->
-    $http.get  "#{STATISTICS_API_URL}/station/#{contract_name}/#{station_id}"
+    start = new Date().getTime() - 24 * 3600 * 1000
+    $http.get  "#{STATISTICS_API_URL}/station/#{contract_name}/#{station_id}?start=#{start}"
       .then (response) ->
-        callback response.data.data
+        return response.data.data
   drawChart: (container, station_id, width, height, data) ->
-    console.log container
-    console.log data
     margin =
       top: 20
       right: 20
@@ -17,7 +16,7 @@ angular.module 'statistics'
 
     x = d3.time.scale().range([0, width])
     y = d3.scale.linear().range([height, 0])
-    xAxis = d3.svg.axis().scale(x).ticks(d3.time.minute, 30).tickFormat(d3.time.format('%H:%M')).orient('bottom')
+    xAxis = d3.svg.axis().scale(x).ticks(d3.time.hout, 2).tickFormat(d3.time.format('%H:%M')).orient('bottom')
     yAxis = d3.svg.axis().scale(y).orient('left')
 
     line = d3.svg.line()

@@ -30,21 +30,28 @@ gulp.task 'coffee', ['concat'], ->
   .pipe coffee bare: true
   .pipe gulp.dest 'www'
 
-gulp.task 'jade', ->
+gulp.task 'static', ->
   gulp.src [
     'src/**/*.png'
   ]
   .pipe flatten()
   .pipe gulp.dest 'www/img'
 
-gulp.task 'static', ->
+gulp.task 'jade', ->
   gulp.src 'src/**/*.jade'
+  .pipe jade pretty: true
+  .pipe flatten()
+  .pipe gulp.dest 'www/templates'
+
+  gulp.src 'src/index.jade'
   .pipe jade pretty: true
   .pipe gulp.dest '.'
 
 gulp.task 'vendor', ->
   gulp.src [
     'bower_components/angular/angular.js',
+    'bower_components/angular-bootstrap/ui-bootstrap-tpls.js',
+    'bower_components/bootstrap/dist/css/bootstrap.css',
     'bower_components/lodash/lodash.js',
     'bower_components/d3/d3.js',
   ]

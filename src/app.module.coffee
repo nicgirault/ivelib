@@ -1,4 +1,4 @@
-angular.module 'ivelib', ['maps-api', 'station', 'statistics', 'map']
+angular.module 'ivelib', ['maps-api', 'station', 'statistics', 'map', 'ui.bootstrap']
 
 angular.module 'ivelib'
 .controller 'mainCtrl', (distanceService, statisticsService, Map) ->
